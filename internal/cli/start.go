@@ -73,7 +73,11 @@ func newStartCommand(app *App) *cobra.Command {
 				fmt.Fprintf(cmd.OutOrStdout(), "agents: %s\n", agentNames)
 			}
 			pipeline := orchestrator.Pipeline{Client: app.chatClient(), Store: app.store}
-			events, err := pipeline.Run(context.Background(), &sess, orchestrator.Options{Rounds: rounds, Roles: roles})
+			ctx := cmd.Context()
+			if ctx == nil {
+				ctx = context.Background()
+			}
+			events, err := pipeline.Run(ctx, &sess, orchestrator.Options{Rounds: rounds, Roles: roles})
 			if err != nil {
 				return err
 			}
