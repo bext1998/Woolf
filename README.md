@@ -1,6 +1,6 @@
-# WoolfCLI
+# Woolf
 
-WoolfCLI 是一套面向文字創作者與內容工作者的多模型 AI 審議 CLI/TUI。它透過 OpenRouter API 調度多個 AI Agent，讓不同角色依序閱讀稿件、提出觀點、互相回應與辯駁，協助使用者取得更立體的創作回饋。
+Woolf 是一套面向文字創作者與內容工作者的多模型 AI 審議 CLI/TUI。它透過 OpenRouter API 調度多個 AI Agent，讓不同角色依序閱讀稿件、提出觀點、互相回應與辯駁，協助使用者取得更立體的創作回饋。
 
 名稱取自 Virginia Woolf 與布魯姆斯伯里文學沙龍的傳統：一群作家、藝術家定期聚會，互相批評、激辯與啟發。WoolfCLI 的目標，是把這種多視角審議帶進終端機。
 
