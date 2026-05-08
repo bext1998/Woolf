@@ -70,4 +70,4 @@ Woolf 預計以 Go 實作，核心模組包含：
 
 ## License
 
-授權方式尚未決定。
+WoolfCLI 採用 Apache License 2.0 授權。詳見 [LICENSE](LICENSE)。
