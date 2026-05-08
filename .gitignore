@@ -11,8 +11,9 @@ Thumbs.db
 
 # Logs and temporary files
 *.log
+coverage.out
 tmp/
 temp/
 
 # Local project specifications
-docs/woolf-spec-v1.0.md
+docs/woolf-spec.md
