@@ -14,7 +14,7 @@ Woolf 是一套面向文字創作者與內容工作者的多模型 AI 審議 CLI
 woolf start --draft chapter3.md --preset editorial
 ```
 
-啟動後，WoolfCLI 會載入稿件與 Agent preset，進入 TUI 介面，並依照設定的輪次執行多模型審議流水線。
+啟動後，Woolf 會載入稿件與 Agent preset，進入 TUI 介面，並依照設定的輪次執行多模型審議流水線。
 
 ## 主要功能規劃
 
