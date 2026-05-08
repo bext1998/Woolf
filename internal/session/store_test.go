@@ -149,6 +149,79 @@ func TestResumePersistsActiveStatus(t *testing.T) {
 	}
 }
 
+func TestForkCopiesSessionAndCanReplaceSource(t *testing.T) {
+	store := NewStore(t.TempDir())
+	writeSession(t, store, Session{
+		SessionID:     "20260508-091500-draft",
+		Version:       Version,
+		Title:         "draft",
+		Status:        StatusCompleted,
+		CreatedAt:     time.Date(2026, 5, 8, 9, 15, 0, 0, time.UTC),
+		UpdatedAt:     time.Date(2026, 5, 8, 9, 15, 0, 0, time.UTC),
+		Source:        &Source{Type: "md", Path: "old.md", Content: "old"},
+		AgentsConfig:  []AgentConfig{{Name: "strict-editor"}},
+		Rounds:        []Round{{RoundIndex: 1}},
+		Interventions: []Intervention{},
+		Summaries:     map[string]string{},
+	})
+
+	source := Source{Type: "txt", Path: "new.txt", Content: "new"}
+	forked, path, err := store.Fork("20260508", ForkOptions{Title: "new draft", Source: &source})
+	if err != nil {
+		t.Fatalf("Fork() error = %v", err)
+	}
+	if forked.SessionID == "20260508-091500-draft" {
+		t.Fatalf("fork reused original session id")
+	}
+	if forked.Title != "new draft" || forked.Status != StatusActive {
+		t.Fatalf("fork metadata = %#v", forked)
+	}
+	if forked.Source == nil || forked.Source.Path != "new.txt" {
+		t.Fatalf("fork source = %#v", forked.Source)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("fork was not saved: %v", err)
+	}
+}
+
+func TestDeleteRemovesSession(t *testing.T) {
+	store := NewStore(t.TempDir())
+	writeSession(t, store, Session{
+		SessionID:     "20260508-091500-delete-me",
+		Version:       Version,
+		Title:         "delete me",
+		Status:        StatusPaused,
+		CreatedAt:     time.Date(2026, 5, 8, 9, 15, 0, 0, time.UTC),
+		UpdatedAt:     time.Date(2026, 5, 8, 9, 15, 0, 0, time.UTC),
+		AgentsConfig:  []AgentConfig{},
+		Rounds:        []Round{},
+		Interventions: []Intervention{},
+		Summaries:     map[string]string{},
+	})
+	path, err := store.Delete("20260508")
+	if err != nil {
+		t.Fatalf("Delete() error = %v", err)
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatalf("deleted path still exists, err = %v", err)
+	}
+}
+
+func TestLoadCorruptJSON(t *testing.T) {
+	store := NewStore(t.TempDir())
+	if err := os.MkdirAll(store.Dir(), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(store.Dir(), "20260508-091500-corrupt.json")
+	if err := os.WriteFile(path, []byte("{"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := store.Load("20260508")
+	if err == nil || !strings.Contains(err.Error(), "SES-003") {
+		t.Fatalf("Load(corrupt) error = %v, want SES-003", err)
+	}
+}
+
 func writeSession(t *testing.T, store *FileStore, session Session) {
 	t.Helper()
 	if err := os.MkdirAll(store.Dir(), 0o700); err != nil {

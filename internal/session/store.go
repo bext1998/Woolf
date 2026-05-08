@@ -29,12 +29,19 @@ type Store interface {
 	Load(ref string) (Session, string, error)
 	Find(ref string) (Session, string, error)
 	Resume(ref string) (Session, string, error)
+	Fork(ref string, opts ForkOptions) (Session, string, error)
+	Delete(ref string) (string, error)
 	List(ListOptions) ([]SessionSummary, error)
 }
 
 type ListOptions struct {
 	Limit  int
 	Status Status
+}
+
+type ForkOptions struct {
+	Title  string
+	Source *Source
 }
 
 type FileStore struct {
@@ -149,6 +156,41 @@ func (s *FileStore) Resume(ref string) (Session, string, error) {
 	session.Status = StatusActive
 	path, err := s.Save(session)
 	return session, path, err
+}
+
+func (s *FileStore) Fork(ref string, opts ForkOptions) (Session, string, error) {
+	base, _, err := s.Load(ref)
+	if err != nil {
+		return Session{}, "", err
+	}
+	now := time.Now().UTC()
+	title := opts.Title
+	if title == "" {
+		title = base.Title + " fork"
+	}
+	fork := base
+	fork.SessionID = s.nextID(now, title)
+	fork.Title = title
+	fork.Status = StatusActive
+	fork.CreatedAt = now
+	fork.UpdatedAt = now
+	if opts.Source != nil {
+		source := *opts.Source
+		fork.Source = &source
+	}
+	path, err := s.Save(fork)
+	return fork, path, err
+}
+
+func (s *FileStore) Delete(ref string) (string, error) {
+	path, err := s.resolve(ref)
+	if err != nil {
+		return "", err
+	}
+	if err := os.Remove(path); err != nil {
+		return "", fmt.Errorf("SES-002: delete session file: %w", err)
+	}
+	return path, nil
 }
 
 func (s *FileStore) List(opts ListOptions) ([]SessionSummary, error) {

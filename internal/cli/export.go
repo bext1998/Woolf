@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
+	"woolf/internal/exporter"
 )
 
 func newExportCommand(app *App) *cobra.Command {
@@ -19,18 +21,21 @@ func newExportCommand(app *App) *cobra.Command {
 				return fmt.Errorf("export requires --format md|pdf")
 			}
 			if format != "md" {
-				return fmt.Errorf("only md export is wired in the Phase 1 skeleton")
+				return fmt.Errorf("only md export is supported in this Phase 1 slice")
 			}
 			sess, _, err := app.store.Load(args[0])
 			if err != nil {
 				return err
 			}
-			content := fmt.Sprintf("# %s\n\n- session_id: %s\n- status: %s\n- rounds_completed: %d\n", sess.Title, sess.SessionID, sess.Status, sess.Totals.RoundsCompleted)
+			data, err := exporter.MarkdownExporter{}.Export(sess)
+			if err != nil {
+				return err
+			}
 			if output == "" {
-				fmt.Fprint(cmd.OutOrStdout(), content)
+				fmt.Fprint(cmd.OutOrStdout(), string(data))
 				return nil
 			}
-			return os.WriteFile(output, []byte(content), 0o600)
+			return os.WriteFile(output, data, 0o600)
 		},
 	}
 	cmd.Flags().StringVar(&format, "format", "", "export format: md|pdf")

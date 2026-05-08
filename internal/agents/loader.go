@@ -15,5 +15,8 @@ func LoadRole(path string) (Role, error) {
 	if err := yaml.Unmarshal(data, &role); err != nil {
 		return Role{}, err
 	}
+	if err := role.Validate(); err != nil {
+		return Role{}, err
+	}
 	return role, nil
 }
