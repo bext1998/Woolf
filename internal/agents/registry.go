@@ -65,6 +65,17 @@ func (r *Registry) Role(name string) (Role, bool) {
 	return role, ok
 }
 
+func (r *Registry) ListRoles() []Role {
+	items := make([]Role, 0, len(r.roles))
+	for _, role := range r.roles {
+		items = append(items, role)
+	}
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].Name < items[j].Name
+	})
+	return items
+}
+
 func (r *Registry) Preset(name string) (Preset, bool) {
 	preset, ok := r.presets[name]
 	return preset, ok
