@@ -77,6 +77,7 @@ func newStartCommand(app *App) *cobra.Command {
 			if err != nil {
 				return err
 			}
+			var runErr error
 			for event := range events {
 				switch event.Type {
 				case orchestrator.EventAgentStarted:
@@ -89,11 +90,14 @@ func newStartCommand(app *App) *cobra.Command {
 					fmt.Fprintf(cmd.OutOrStdout(), "round %d agent %s finished\n", event.RoundIndex, event.AgentName)
 				case orchestrator.EventError:
 					fmt.Fprintf(cmd.ErrOrStderr(), "%s\n", event.Error)
+					if runErr == nil {
+						runErr = event.Error
+					}
 				case orchestrator.EventDone:
-					fmt.Fprintf(cmd.OutOrStdout(), "completed session: %s (%s rounds)\n", event.Session.SessionID, strconv.Itoa(event.Session.Totals.RoundsCompleted))
+					fmt.Fprintf(cmd.OutOrStdout(), "finished session: %s status=%s (%s rounds)\n", event.Session.SessionID, event.Session.Status, strconv.Itoa(event.Session.Totals.RoundsCompleted))
 				}
 			}
-			return nil
+			return runErr
 		},
 	}
 	cmd.Flags().StringVar(&draft, "draft", "", "draft file")

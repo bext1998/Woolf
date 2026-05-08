@@ -108,7 +108,7 @@ func (c *Client) doWithRetry(ctx context.Context, body []byte) (*http.Response, 
 			return resp, nil
 		}
 		if attempt+1 < attempts {
-			time.Sleep(time.Duration(attempt+1) * time.Second)
+			time.Sleep(retryDelay(resp, attempt))
 		}
 	}
 	return nil, lastErr
@@ -124,7 +124,7 @@ func (c *Client) do(ctx context.Context, body []byte) (*http.Response, error) {
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Accept", "text/event-stream")
 	httpReq.Header.Set("HTTP-Referer", "https://github.com/woolf-cli")
-	httpReq.Header.Set("X-Title", "WoolfCLI")
+	httpReq.Header.Set("X-Title", "Woolf")
 	return c.HTTPClient.Do(httpReq)
 }
 
@@ -179,22 +179,40 @@ func apiErrorFromResponse(resp *http.Response) error {
 	}
 	switch resp.StatusCode {
 	case http.StatusUnauthorized:
-		return APIError{Code: "API-001", Message: msg}
+		return APIError{Code: "API-AUTH", Message: msg}
 	case http.StatusPaymentRequired:
-		return APIError{Code: "API-002", Message: msg}
+		return APIError{Code: "API-CREDIT", Message: msg}
 	case http.StatusTooManyRequests:
 		if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
 			msg = fmt.Sprintf("%s retry_after=%s", msg, retryAfter)
 		}
-		return APIError{Code: "API-003", Message: msg}
+		return APIError{Code: "API-RATE", Message: msg}
 	case http.StatusNotFound:
-		return APIError{Code: "API-004", Message: msg}
+		return APIError{Code: "API-MODEL", Message: msg}
 	default:
 		if resp.StatusCode >= 500 {
-			return APIError{Code: "API-005", Message: msg}
+			return APIError{Code: "API-SERVER", Message: msg}
 		}
 		return APIError{Code: "API-ERROR", Message: msg}
 	}
+}
+
+func retryDelay(resp *http.Response, attempt int) time.Duration {
+	if resp != nil && resp.StatusCode == http.StatusTooManyRequests {
+		if value := strings.TrimSpace(resp.Header.Get("Retry-After")); value != "" {
+			if seconds, err := time.ParseDuration(value + "s"); err == nil {
+				return seconds
+			}
+			if when, err := http.ParseTime(value); err == nil {
+				delay := time.Until(when)
+				if delay > 0 {
+					return delay
+				}
+				return 0
+			}
+		}
+	}
+	return time.Duration(1<<attempt) * time.Second
 }
 
 func drainAndClose(body io.ReadCloser) {

@@ -72,6 +72,7 @@ func (p Pipeline) Run(ctx context.Context, sess *session.Session, opts Options) 
 
 func (p Pipeline) run(ctx context.Context, sess *session.Session, opts Options, events chan<- Event) {
 	ensureAgentConfig(sess, opts.Roles)
+	hadError := false
 	for roundOffset := 0; roundOffset < opts.Rounds; roundOffset++ {
 		roundIndex := len(sess.Rounds) + 1
 		round := session.Round{
@@ -86,7 +87,10 @@ func (p Pipeline) run(ctx context.Context, sess *session.Session, opts Options, 
 			select {
 			case <-ctx.Done():
 				sess.Status = session.StatusPaused
-				p.Store.Save(*sess)
+				if _, err := p.Store.Save(*sess); err != nil {
+					events <- Event{Type: EventError, RoundIndex: roundIndex, AgentName: role.Name, Error: err, Session: *sess}
+					return
+				}
 				events <- Event{Type: EventError, RoundIndex: roundIndex, AgentName: role.Name, Error: ctx.Err(), Session: *sess}
 				return
 			default:
@@ -108,17 +112,26 @@ func (p Pipeline) run(ctx context.Context, sess *session.Session, opts Options, 
 			}
 			stream, err := p.Client.StreamChat(ctx, req)
 			if err != nil {
+				hadError = true
 				response.Status = "skipped"
 				response.Content = err.Error()
 				appendResponse(sess, roundIndex, response)
-				p.Store.Save(*sess)
+				recalculateTotals(sess)
+				sess.Status = session.StatusError
+				if _, saveErr := p.Store.Save(*sess); saveErr != nil {
+					events <- Event{Type: EventError, RoundIndex: roundIndex, AgentName: role.Name, Error: saveErr, Session: *sess}
+					return
+				}
 				events <- Event{Type: EventError, RoundIndex: roundIndex, AgentName: role.Name, Error: err, Session: *sess}
 				continue
 			}
+			var streamErr error
 			for event := range stream {
 				if event.Error != nil {
+					hadError = true
 					response.Status = "skipped"
 					response.Content = event.Error.Error()
+					streamErr = event.Error
 					break
 				}
 				if event.Content != "" {
@@ -132,9 +145,16 @@ func (p Pipeline) run(ctx context.Context, sess *session.Session, opts Options, 
 			}
 			appendResponse(sess, roundIndex, response)
 			recalculateTotals(sess)
+			if streamErr != nil {
+				sess.Status = session.StatusError
+			}
 			if _, err := p.Store.Save(*sess); err != nil {
 				events <- Event{Type: EventError, RoundIndex: roundIndex, AgentName: role.Name, Error: err, Session: *sess}
 				return
+			}
+			if streamErr != nil {
+				events <- Event{Type: EventError, RoundIndex: roundIndex, AgentName: role.Name, Error: streamErr, Session: *sess}
+				continue
 			}
 			events <- Event{Type: EventAgentFinished, RoundIndex: roundIndex, AgentName: role.Name, Session: *sess}
 		}
@@ -145,9 +165,16 @@ func (p Pipeline) run(ctx context.Context, sess *session.Session, opts Options, 
 			return
 		}
 	}
-	sess.Status = session.StatusCompleted
+	if hadError {
+		sess.Status = session.StatusError
+	} else {
+		sess.Status = session.StatusCompleted
+	}
 	recalculateTotals(sess)
-	p.Store.Save(*sess)
+	if _, err := p.Store.Save(*sess); err != nil {
+		events <- Event{Type: EventError, Error: err, Session: *sess}
+		return
+	}
 	events <- Event{Type: EventDone, Session: *sess}
 }
 
