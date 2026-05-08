@@ -2,10 +2,14 @@ package cli
 
 import (
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"woolf/internal/config"
+	"woolf/internal/openrouter"
+	"woolf/internal/orchestrator"
 	"woolf/internal/session"
 )
 
@@ -15,10 +19,16 @@ type App struct {
 	noColor    bool
 	loaded     config.Loaded
 	store      session.Store
+	client     orchestrator.ChatClient
 }
 
 func NewRootCommand() *cobra.Command {
+	return NewRootCommandWithClient(nil)
+}
+
+func NewRootCommandWithClient(client orchestrator.ChatClient) *cobra.Command {
 	app := &App{}
+	app.client = client
 	cmd := &cobra.Command{
 		Use:   "woolf",
 		Short: "Woolf AI writing salon CLI",
@@ -40,6 +50,9 @@ func NewRootCommand() *cobra.Command {
 		newListCommand(app),
 		newShowCommand(app),
 		newExportCommand(app),
+		newForkCommand(app),
+		newDeleteCommand(app),
+		newAgentsCommand(app),
 		newConfigCommand(app),
 		newModelsCommand(app),
 	)
@@ -57,6 +70,24 @@ func (app *App) load() error {
 	app.loaded = loaded
 	app.store = session.NewStore(loaded.Paths.SessionsDir)
 	return nil
+}
+
+func (app *App) chatClient() orchestrator.ChatClient {
+	if app.client != nil {
+		return app.client
+	}
+	timeout := time.Duration(app.loaded.Config.API.TimeoutSec) * time.Second
+	if timeout <= 0 {
+		timeout = 120 * time.Second
+	}
+	return &openrouter.Client{
+		BaseURL: app.loaded.Config.API.BaseURL,
+		APIKey:  app.loaded.Config.API.OpenRouterKey,
+		HTTPClient: &http.Client{
+			Timeout: timeout,
+		},
+		MaxRetries: app.loaded.Config.API.MaxRetries,
+	}
 }
 
 func (app *App) printPaths(cmd *cobra.Command) {

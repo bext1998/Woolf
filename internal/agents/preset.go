@@ -1,6 +1,7 @@
 package agents
 
 type Preset struct {
-	Name  string
-	Roles []string
+	Name        string   `yaml:"name"`
+	DisplayName string   `yaml:"display_name"`
+	Roles       []string `yaml:"roles"`
 }

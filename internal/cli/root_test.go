@@ -16,6 +16,9 @@ func TestNewRootCommandRegistersExpectedSubcommands(t *testing.T) {
 		"list",
 		"show",
 		"export",
+		"fork",
+		"delete",
+		"agents",
 		"config",
 		"models",
 	}
