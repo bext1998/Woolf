@@ -92,6 +92,21 @@ system_prompt: Test prompt.
 	}
 }
 
+func TestAgentsDeleteRejectsUnsafeName(t *testing.T) {
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, "config.toml")
+	cmd := NewRootCommand()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{"--config", configPath, "agents", "delete", "../custom"})
+
+	err := cmd.Execute()
+	if err == nil || !strings.Contains(err.Error(), "CFG-003") {
+		t.Fatalf("agents delete error = %v, want CFG-003", err)
+	}
+}
+
 func quotedTomlString(value string) string {
 	return `"` + strings.ReplaceAll(value, `\`, `\\`) + `"`
 }
