@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 
 	"woolf/internal/agents"
 )
@@ -117,7 +116,7 @@ func newAgentsAddCommand(app *App) *cobra.Command {
 			if err := os.MkdirAll(app.loaded.Paths.AgentsDir, 0o700); err != nil {
 				return err
 			}
-			data, err := yaml.Marshal(role)
+			data, err := os.ReadFile(args[0])
 			if err != nil {
 				return err
 			}
